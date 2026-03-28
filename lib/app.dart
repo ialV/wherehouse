@@ -36,7 +36,7 @@ class WherehouseApp extends StatelessWidget {
           foregroundColor: Color(0xFF2F241E),
           elevation: 0,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: Colors.white.withOpacity(0.92),
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -47,7 +47,7 @@ class WherehouseApp extends StatelessWidget {
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white.withOpacity(0.88),
           indicatorColor: const Color(0xFFF5D6C7),
-          labelTextStyle: MaterialStateProperty.all(
+          labelTextStyle: WidgetStateProperty.all(
             const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),

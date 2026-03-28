@@ -7,8 +7,14 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-class AppDatabase extends DatabaseConnectionUser {
+class AppDatabase extends GeneratedDatabase {
   AppDatabase._(super.executor);
+
+  @override
+  int get schemaVersion => 1;
+
+  @override
+  Iterable<DatabaseSchemaEntity> get allSchemaEntities => const [];
 
   static const defaultHouseholdId = 'household-default';
   static const defaultUserId = 'user-default';
