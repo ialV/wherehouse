@@ -1,5 +1,7 @@
 import 'household.dart';
 
+const _unset = Object();
+
 class Thing {
   const Thing({
     required this.id,
@@ -49,14 +51,14 @@ class Thing {
     String? name,
     List<String>? photoUrls,
     List<Tag>? tags,
-    String? containedIn,
-    DateTime? expiry,
-    String? notes,
+    Object? containedIn = _unset,
+    Object? expiry = _unset,
+    Object? notes = _unset,
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? thingType,
-    String? containerName,
+    Object? containerName = _unset,
   }) {
     return Thing(
       id: id ?? this.id,
@@ -64,14 +66,17 @@ class Thing {
       name: name ?? this.name,
       photoUrls: photoUrls ?? this.photoUrls,
       tags: tags ?? this.tags,
-      containedIn: containedIn ?? this.containedIn,
-      expiry: expiry ?? this.expiry,
-      notes: notes ?? this.notes,
+      containedIn:
+          identical(containedIn, _unset) ? this.containedIn : containedIn as String?,
+      expiry: identical(expiry, _unset) ? this.expiry : expiry as DateTime?,
+      notes: identical(notes, _unset) ? this.notes : notes as String?,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       thingType: thingType ?? this.thingType,
-      containerName: containerName ?? this.containerName,
+      containerName: identical(containerName, _unset)
+          ? this.containerName
+          : containerName as String?,
     );
   }
 }
@@ -131,11 +136,11 @@ class ThingDraft {
     List<String>? proposedTags,
     String? householdId,
     String? createdBy,
-    String? locationName,
-    String? containedInId,
-    DateTime? expiry,
-    String? notes,
-    FollowUpPrompt? followUp,
+    Object? locationName = _unset,
+    Object? containedInId = _unset,
+    Object? expiry = _unset,
+    Object? notes = _unset,
+    Object? followUp = _unset,
     bool clearFollowUp = false,
     bool? followUpAsked,
     String? thingType,
@@ -148,14 +153,21 @@ class ThingDraft {
       proposedTags: proposedTags ?? this.proposedTags,
       householdId: householdId ?? this.householdId,
       createdBy: createdBy ?? this.createdBy,
-      locationName: locationName ?? this.locationName,
-      containedInId: containedInId ?? this.containedInId,
-      expiry: expiry ?? this.expiry,
-      notes: notes ?? this.notes,
-      followUp: clearFollowUp ? null : (followUp ?? this.followUp),
+      locationName: identical(locationName, _unset)
+          ? this.locationName
+          : locationName as String?,
+      containedInId: identical(containedInId, _unset)
+          ? this.containedInId
+          : containedInId as String?,
+      expiry: identical(expiry, _unset) ? this.expiry : expiry as DateTime?,
+      notes: identical(notes, _unset) ? this.notes : notes as String?,
+      followUp: clearFollowUp
+          ? null
+          : identical(followUp, _unset)
+              ? this.followUp
+              : followUp as FollowUpPrompt?,
       followUpAsked: followUpAsked ?? this.followUpAsked,
       thingType: thingType ?? this.thingType,
     );
   }
 }
-

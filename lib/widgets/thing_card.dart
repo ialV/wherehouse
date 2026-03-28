@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/thing.dart';
-import 'location_chain.dart';
 
 class ThingCard extends StatelessWidget {
   const ThingCard({
@@ -20,186 +19,231 @@ class ThingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('yyyy-MM-dd');
+    final locationText = thing.containerName?.trim().isNotEmpty == true
+        ? thing.containerName!.trim()
+        : '暂未归位';
+    final expiryLabel = _buildExpiryLabel();
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ThingImage(
-                path: thing.photoUrls.isEmpty ? null : thing.photoUrls.first,
-                compact: compact,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            thing.name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        if (thing.isLocation)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8E7C9),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: const Text('位置'),
-                          ),
-                      ],
+        child: compact
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 108,
+                    child: _ThingThumbnail(thing: thing),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _ThingCardBody(
+                        thing: thing,
+                        locationText: locationText,
+                        expiryLabel: expiryLabel,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    if (thing.containerName != null)
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.place_outlined,
-                            size: 16,
-                            color: Color(0xFF8F6B5C),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              thing.containerName!,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                        ],
-                      ),
-                    if (thing.containedIn != null) ...[
-                      const SizedBox(height: 8),
-                      LocationChain(
-                        thingId: thing.id,
-                        compact: true,
-                      ),
-                    ],
-                    if (thing.expiry != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '有效期 ${dateFormat.format(thing.expiry!)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: thing.isExpiringSoon
-                                  ? const Color(0xFFB23A2A)
-                                  : const Color(0xFF776B62),
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ],
-                    if ((thing.notes ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        thing.notes!,
-                        maxLines: compact ? 1 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                    if (thing.tags.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final tag in thing.tags.take(compact ? 3 : 8))
-                            Chip(
-                              visualDensity: VisualDensity.compact,
-                              label: Text(tag.name),
-                              side: BorderSide.none,
-                              backgroundColor: const Color(0xFFF0EFEA),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1.1,
+                    child: _ThingThumbnail(thing: thing),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: _ThingCardBody(
+                      thing: thing,
+                      locationText: locationText,
+                      expiryLabel: expiryLabel,
+                    ),
+                  ),
+                ],
               ),
-            ],
+      ),
+    );
+  }
+
+  String? _buildExpiryLabel() {
+    if (thing.expiry == null) {
+      return null;
+    }
+
+    final formatter = DateFormat('M月d日');
+    if (thing.expiry!.isBefore(DateTime.now())) {
+      return '已过期 ${formatter.format(thing.expiry!)}';
+    }
+    if (thing.isExpiringSoon) {
+      return '临期 ${formatter.format(thing.expiry!)}';
+    }
+    return '效期 ${formatter.format(thing.expiry!)}';
+  }
+}
+
+class _ThingCardBody extends StatelessWidget {
+  const _ThingCardBody({
+    required this.thing,
+    required this.locationText,
+    required this.expiryLabel,
+  });
+
+  final Thing thing;
+  final String locationText;
+  final String? expiryLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          thing.name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF2F241E),
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(
+                Icons.place_outlined,
+                size: 16,
+                color: Color(0xFF88624C),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                locationText,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF6E5748),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (expiryLabel != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: thing.expiry!.isBefore(DateTime.now())
+                  ? const Color(0xFFF7D5CC)
+                  : const Color(0xFFFCE9D6),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              expiryLabel!,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: const Color(0xFF8F3B1B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
 
-class _ThingImage extends StatelessWidget {
-  const _ThingImage({
-    required this.path,
-    required this.compact,
-  });
+class _ThingThumbnail extends StatelessWidget {
+  const _ThingThumbnail({required this.thing});
 
-  final String? path;
-  final bool compact;
+  final Thing thing;
 
   @override
   Widget build(BuildContext context) {
-    final size = compact ? 72.0 : 84.0;
-    final radius = BorderRadius.circular(18);
-
-    if (path == null) {
-      return _FallbackThumb(size: size, radius: radius);
+    if (thing.photoUrls.isEmpty) {
+      return const _ThingPlaceholder();
     }
 
-    final file = File(path!);
-    if (!file.existsSync()) {
-      return _FallbackThumb(size: size, radius: radius);
+    final imageFile = File(thing.photoUrls.first);
+    if (!imageFile.existsSync()) {
+      return const _ThingPlaceholder();
     }
 
-    return ClipRRect(
-      borderRadius: radius,
-      child: Image.file(
-        file,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-      ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.file(
+          imageFile,
+          fit: BoxFit.cover,
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.04),
+                Colors.black.withOpacity(0.12),
+              ],
+            ),
+          ),
+        ),
+        if (thing.isLocation)
+          Align(
+            alignment: Alignment.topLeft,
+            child: Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text(
+                '位置',
+                style: TextStyle(
+                  color: Color(0xFF6E5748),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _FallbackThumb extends StatelessWidget {
-  const _FallbackThumb({
-    required this.size,
-    required this.radius,
-  });
-
-  final double size;
-  final BorderRadius radius;
+class _ThingPlaceholder extends StatelessWidget {
+  const _ThingPlaceholder();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        gradient: const LinearGradient(
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           colors: [
-            Color(0xFFF5D7BF),
-            Color(0xFFE2B9A3),
+            Color(0xFFF5DFCF),
+            Color(0xFFF0C9B2),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF6F5448)),
+      child: const Center(
+        child: Icon(
+          Icons.inventory_2_rounded,
+          size: 42,
+          color: Color(0xFF8E644F),
+        ),
+      ),
     );
   }
 }
-

@@ -15,7 +15,7 @@ class ThingDao {
   final Uuid _uuid = const Uuid();
 
   Stream<List<Thing>> watchRecentThings() {
-    return _watch(() => searchThings(limit: 8));
+    return _watch(() => searchThings(limit: 8, includeLocations: false));
   }
 
   Stream<List<Thing>> watchItems() {
@@ -66,14 +66,19 @@ class ThingDao {
   Future<List<Thing>> searchThings({
     String query = '',
     int? limit,
+    bool includeLocations = true,
   }) async {
-    final variables = <Variable<Object>>[
+    final variables = <Variable>[
       Variable.withString(AppDatabase.defaultHouseholdId),
     ];
     final buffer = StringBuffer('''
       SELECT * FROM things
       WHERE household_id = ?
     ''');
+
+    if (!includeLocations) {
+      buffer.write(" AND thing_type != 'location' ");
+    }
 
     if (query.trim().isNotEmpty) {
       final like = '%${query.trim().toLowerCase()}%';
@@ -254,7 +259,8 @@ class ThingDao {
   }
 
   Future<String> saveDraft(ThingDraft draft) async {
-    final containedInId = draft.containedInId ?? await ensureLocationThing(draft.locationName);
+    final containedInId =
+        draft.containedInId ?? await ensureLocationThing(draft.locationName);
     final now = DateTime.now().toIso8601String();
     final thingId = draft.id ?? _uuid.v4();
 
@@ -272,10 +278,10 @@ class ThingDao {
             Variable.withString(thingId),
             Variable.withString(draft.householdId),
             Variable.withString(draft.itemName.trim()),
-            Variable<String?>(containedInId),
-            Variable<String?>(draft.locationName?.trim()),
-            Variable<String?>(draft.expiry?.toIso8601String()),
-            Variable<String?>(draft.notes?.trim()),
+            Variable<String>(containedInId),
+            Variable<String>(_nullableTrim(draft.locationName)),
+            Variable<String>(draft.expiry?.toIso8601String()),
+            Variable<String>(_nullableTrim(draft.notes)),
             Variable.withString(draft.createdBy),
             Variable.withString(now),
             Variable.withString(now),
@@ -292,15 +298,15 @@ class ThingDao {
           ''',
           variables: [
             Variable.withString(draft.itemName.trim()),
-            Variable<String?>(containedInId),
-            Variable<String?>(draft.locationName?.trim()),
-            Variable<String?>(draft.expiry?.toIso8601String()),
-            Variable<String?>(draft.notes?.trim()),
+            Variable<String>(containedInId),
+            Variable<String>(_nullableTrim(draft.locationName)),
+            Variable<String>(draft.expiry?.toIso8601String()),
+            Variable<String>(_nullableTrim(draft.notes)),
             Variable.withString(now),
             Variable.withString(draft.thingType),
             Variable.withString(thingId),
           ],
-          updates: {},
+          updates: const {},
         );
         await _database.customStatement(
           'DELETE FROM thing_photos WHERE thing_id = ?',
@@ -400,7 +406,7 @@ class ThingDao {
           Variable.withString(now),
           Variable.withString(id),
         ],
-        updates: {},
+        updates: const {},
       );
     }
   }
@@ -482,6 +488,14 @@ class ThingDao {
       return null;
     }
     return DateTime.tryParse(raw);
+  }
+
+  String? _nullableTrim(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed;
   }
 
   Future<void> importSampleThing({

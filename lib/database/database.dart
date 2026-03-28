@@ -203,9 +203,8 @@ class AppDatabase extends DatabaseConnectionUser {
   }
 
   @override
-  void close() {
-    _changeController.close();
-    super.close();
+  Future<void> close() async {
+    await _changeController.close();
+    await super.close();
   }
 }
-

@@ -1,66 +1,61 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/thing.dart';
-import '../providers/app_providers.dart';
 
-class LocationChain extends ConsumerWidget {
+class LocationChain extends StatelessWidget {
   const LocationChain({
     super.key,
-    required this.thingId,
-    this.compact = false,
+    required this.currentLabel,
+    required this.chain,
   });
 
-  final String thingId;
-  final bool compact;
+  final String currentLabel;
+  final List<Thing> chain;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final chainAsync = ref.watch(locationChainProvider(thingId));
-    final style = Theme.of(context).textTheme.bodySmall;
+  Widget build(BuildContext context) {
+    final labels = <String>[
+      currentLabel,
+      ...chain.map((thing) => thing.name),
+    ].where((label) => label.trim().isNotEmpty).toList();
 
-    return chainAsync.when(
-      data: (chain) {
-        if (chain.isEmpty) {
-          return Text(
-            '未设置位置',
-            style: style?.copyWith(color: const Color(0xFF8A7D74)),
-          );
-        }
+    if (labels.isEmpty) {
+      return Text(
+        '未设置位置',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF8A7D74),
+            ),
+      );
+    }
 
-        return Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (var index = 0; index < chain.length; index += 1) ...[
-              if (index > 0)
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: compact ? 14 : 18,
-                  color: const Color(0xFF9E8E82),
-                ),
-              Chip(
-                visualDensity:
-                    compact ? VisualDensity.compact : VisualDensity.standard,
-                backgroundColor: const Color(0xFFF5E5D8),
-                label: Text(chain[index].name),
-                side: BorderSide.none,
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 6,
+      runSpacing: 8,
+      children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          Chip(
+            avatar: index == 0
+                ? const Icon(Icons.inventory_2_outlined, size: 16)
+                : const Icon(Icons.archive_outlined, size: 16),
+            label: Text(labels[index]),
+            visualDensity: VisualDensity.compact,
+            side: const BorderSide(color: Color(0xFFE4D2BF)),
+            backgroundColor: index == 0
+                ? const Color(0xFFFFF4EA)
+                : Colors.white.withOpacity(0.9),
+          ),
+          if (index != labels.length - 1)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 2),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Color(0xFF8A6E5B),
               ),
-            ],
-          ],
-        );
-      },
-      loading: () => const SizedBox(
-        height: 18,
-        width: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-      error: (_, __) => Text(
-        '位置链加载失败',
-        style: style?.copyWith(color: Colors.red.shade400),
-      ),
+            ),
+        ],
+      ],
     );
   }
 }
-
