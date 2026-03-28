@@ -16,6 +16,9 @@ class AppDatabase extends GeneratedDatabase {
   @override
   Iterable<DatabaseSchemaEntity> get allSchemaEntities => const [];
 
+  @override
+  Iterable<TableInfo<Table, DataClass>> get allTables => const [];
+
   static const defaultHouseholdId = 'household-default';
   static const defaultUserId = 'user-default';
   static const defaultInviteCode = 'WH0001';
