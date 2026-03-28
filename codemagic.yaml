@@ -11,6 +11,9 @@ workflows:
       - name: Generate platform shells
         script: |
           flutter create --platforms android .
+      - name: Create .env file
+        script: |
+          echo "DASHSCOPE_API_KEY=\$DASHSCOPE_API_KEY" > .env
       - name: Get dependencies
         script: |
           flutter pub get
