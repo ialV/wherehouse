@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Offset;
 
 import 'package:http/http.dart' as http;
 
@@ -20,16 +21,18 @@ class LlmService {
   static const _endpoint =
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   static const _visionModel = 'qwen-vl-max-latest';
+  static const _textModel = 'qwen-max-latest';
 
   Future<ThingDraft> extractThing({
-    required File imageFile,
+    File? imageFile,
     required String description,
     required List<Tag> availableTags,
+    Offset? pinPosition,
   }) async {
     final fallback = _fallbackExtract(
       description: description,
       availableTags: availableTags,
-      imagePath: imageFile.path,
+      imagePath: imageFile?.path ?? '',
       followUpAlreadyAsked: false,
     );
 
@@ -37,6 +40,7 @@ class LlmService {
     final key = apiKey?.trim();
     _log.add('LLM', 'apiKey present: ${key != null && key.isNotEmpty}, len=${key?.length ?? 0}');
     _log.add('LLM', 'description: "$description"');
+    _log.add('LLM', 'hasImage: ${imageFile != null}, pin: ${pinPosition != null ? "(${(pinPosition.dx * 100).round()}%, ${(pinPosition.dy * 100).round()}%)" : "none"}');
     _log.add('LLM', 'availableTags: ${availableTags.map((t) => t.name).toList()}');
     if (key == null || key.isEmpty) {
       _log.add('LLM', '⚠️ No API key → using fallback regex path');
@@ -44,9 +48,29 @@ class LlmService {
     }
 
     try {
-      final bytes = await imageFile.readAsBytes();
-      _log.add('LLM', 'Image size: ${bytes.length} bytes');
-      final base64Image = base64Encode(bytes);
+      final userContent = <Map<String, dynamic>>[];
+
+      if (imageFile != null) {
+        final bytes = await imageFile.readAsBytes();
+        _log.add('LLM', 'Image size: ${bytes.length} bytes');
+        final base64Image = base64Encode(bytes);
+        userContent.add({
+          'type': 'image_url',
+          'image_url': {
+            'url': 'data:image/jpeg;base64,$base64Image',
+          },
+        });
+      }
+
+      var userText = '用户描述：$description';
+      if (pinPosition != null) {
+        final px = (pinPosition.dx * 100).round();
+        final py = (pinPosition.dy * 100).round();
+        userText += '\n\n用户在图片上标记了一个图钉📌，位于画面水平$px%、垂直$py%处。请重点识别该位置附近的物品或位置。';
+      }
+      userContent.add({'type': 'text', 'text': userText});
+
+      final model = imageFile != null ? _visionModel : _textModel;
       final response = await _client.post(
         Uri.parse(_endpoint),
         headers: {
@@ -54,7 +78,7 @@ class LlmService {
           HttpHeaders.contentTypeHeader: 'application/json',
         },
         body: jsonEncode({
-          'model': _visionModel,
+          'model': model,
           'temperature': 0.1,
           'messages': [
             {
@@ -62,24 +86,13 @@ class LlmService {
               'content': [
                 {
                   'type': 'text',
-                  'text': _systemPrompt(availableTags),
+                  'text': _systemPrompt(availableTags, hasImage: imageFile != null),
                 }
               ],
             },
             {
               'role': 'user',
-              'content': [
-                {
-                  'type': 'image_url',
-                  'image_url': {
-                    'url': 'data:image/jpeg;base64,$base64Image',
-                  },
-                },
-                {
-                  'type': 'text',
-                  'text': '用户描述：$description',
-                },
-              ],
+              'content': userContent,
             },
           ],
         }),
@@ -112,7 +125,7 @@ class LlmService {
       return _mapDraft(
         parsed,
         description: description,
-        imagePath: imageFile.path,
+        imagePath: imageFile?.path ?? '',
         availableTags: availableTags,
         followUpAlreadyAsked: false,
       );
@@ -139,7 +152,7 @@ class LlmService {
     final extracted = _fallbackExtract(
       description: reply,
       availableTags: availableTags,
-      imagePath: currentDraft.imagePaths.first,
+      imagePath: currentDraft.imagePaths.isNotEmpty ? currentDraft.imagePaths.first : '',
       followUpAlreadyAsked: true,
     );
 
@@ -197,7 +210,7 @@ class LlmService {
 
     return ThingDraft(
       itemName: itemName == null || itemName.isEmpty ? _guessItemName(description) : itemName,
-      imagePaths: [imagePath],
+      imagePaths: imagePath.isEmpty ? const [] : [imagePath],
       selectedTags: selectedTags,
       proposedTags: proposedTags,
       householdId: AppDatabase.defaultHouseholdId,
@@ -254,7 +267,7 @@ class LlmService {
 
     return ThingDraft(
       itemName: itemName,
-      imagePaths: [imagePath],
+      imagePaths: imagePath.isEmpty ? const [] : [imagePath],
       selectedTags: matchedTags,
       proposedTags: proposedTags,
       householdId: AppDatabase.defaultHouseholdId,
@@ -267,10 +280,16 @@ class LlmService {
     );
   }
 
-  String _systemPrompt(List<Tag> tags) {
+  String _systemPrompt(List<Tag> tags, {bool hasImage = true}) {
     final tagNames = tags.map((tag) => tag.name).toList();
+    final imageNote = hasImage
+        ? '用户会给你一张照片和一句描述。'
+        : '用户只提供了文字描述（无照片）。';
+    final pinNote = hasImage
+        ? '\n如果用户标记了图钉位置，请重点关注图片中该区域的物品，以此作为 item_name。'
+        : '';
     return '''
-你是一个家庭物品录入助手。用户会给你一张照片和一句描述。
+你是一个家庭物品录入助手。$imageNote
 
 请严格返回一个 JSON 对象，不要输出任何额外解释。格式如下：
 {
@@ -284,7 +303,7 @@ class LlmService {
   "follow_up_reason": "追问原因（用于调试）",
   "importance": "important|gentle|none"
 }
-
+$pinNote
 追问规则：
 - 药品/食品缺有效期时，important
 - 位置只有房间名时，gentle

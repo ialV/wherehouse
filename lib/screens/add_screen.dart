@@ -27,6 +27,8 @@ class _AddScreenState extends ConsumerState<AddScreen> {
 
   File? _imageFile;
   ThingDraft? _draft;
+  /// Relative pin position (0-1, 0-1). null = no pin placed.
+  Offset? _pinPosition;
   bool _isExtracting = false;
   bool _isRefining = false;
   bool _isSaving = false;
@@ -82,7 +84,14 @@ class _AddScreenState extends ConsumerState<AddScreen> {
           children: [
             _HeroPanel(
               imageFile: _imageFile,
+              pinPosition: _pinPosition,
               onCapture: _isBusy ? null : _captureImage,
+              onPinPlaced: _imageFile != null && !_isBusy
+                  ? (pos) => setState(() => _pinPosition = pos)
+                  : null,
+              onPinCleared: _pinPosition != null && !_isBusy
+                  ? () => setState(() => _pinPosition = null)
+                  : null,
             ),
             const SizedBox(height: 18),
             Card(
@@ -287,17 +296,17 @@ class _AddScreenState extends ConsumerState<AddScreen> {
     setState(() {
       _imageFile = savedFile;
       _draft = null;
+      _pinPosition = null;
       _followUpController.clear();
     });
   }
 
   Future<void> _extractDraft() async {
-    if (_imageFile == null) {
-      _showSnackBar('先拍一张照片');
+    final description = _descriptionController.text.trim();
+    if (_imageFile == null && description.isEmpty) {
+      _showSnackBar('拍张照或写句描述');
       return;
     }
-
-    final description = _descriptionController.text.trim();
     if (description.isEmpty) {
       _showSnackBar('写一句描述，识别会更准');
       return;
@@ -310,9 +319,10 @@ class _AddScreenState extends ConsumerState<AddScreen> {
     try {
       final tags = await ref.read(thingDaoProvider).loadTags();
       final draft = await ref.read(llmServiceProvider).extractThing(
-            imageFile: _imageFile!,
+            imageFile: _imageFile,
             description: description,
             availableTags: tags,
+            pinPosition: _pinPosition,
           );
 
       if (!mounted) {
@@ -600,10 +610,16 @@ class _HeroPanel extends StatelessWidget {
   const _HeroPanel({
     required this.imageFile,
     required this.onCapture,
+    this.pinPosition,
+    this.onPinPlaced,
+    this.onPinCleared,
   });
 
   final File? imageFile;
   final VoidCallback? onCapture;
+  final Offset? pinPosition;
+  final ValueChanged<Offset>? onPinPlaced;
+  final VoidCallback? onPinCleared;
 
   @override
   Widget build(BuildContext context) {
@@ -634,9 +650,42 @@ class _HeroPanel extends StatelessWidget {
                       ),
                     ),
                   )
-                : Image.file(
-                    imageFile!,
-                    fit: BoxFit.cover,
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      return GestureDetector(
+                        onTapUp: onPinPlaced == null
+                            ? null
+                            : (details) {
+                                final rx = details.localPosition.dx /
+                                    constraints.maxWidth;
+                                final ry = details.localPosition.dy /
+                                    constraints.maxHeight;
+                                onPinPlaced!(Offset(rx.clamp(0, 1), ry.clamp(0, 1)));
+                              },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.file(imageFile!, fit: BoxFit.cover),
+                            if (pinPosition != null)
+                              Positioned(
+                                left: pinPosition!.dx * constraints.maxWidth - 16,
+                                top: pinPosition!.dy * constraints.maxHeight - 32,
+                                child: const Icon(
+                                  Icons.location_pin,
+                                  color: Color(0xFFE53935),
+                                  size: 32,
+                                  shadows: [
+                                    Shadow(
+                                      blurRadius: 4,
+                                      color: Colors.black54,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
           ),
           Padding(
@@ -645,23 +694,41 @@ class _HeroPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '先拍照，再让系统帮你整理字段',
+                  imageFile == null
+                      ? '拍张照，或直接写描述'
+                      : '点图片标出主体位置（可选）',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '支持拍现有物品，也支持拍外包装或标签面。',
+                  imageFile == null
+                      ? '拍照可选——纯文字描述照样能录入。'
+                      : pinPosition != null
+                          ? '已标记 📍 点其他位置可移动图钉'
+                          : '在照片上点一下，告诉AI你关注的是哪个物品。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: const Color(0xFF6E5748),
                       ),
                 ),
                 const SizedBox(height: 14),
-                FilledButton.icon(
-                  onPressed: onCapture,
-                  icon: const Icon(Icons.camera_alt_outlined),
-                  label: Text(imageFile == null ? '拍照' : '重新拍照'),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: onCapture,
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: Text(imageFile == null ? '拍照（可选）' : '重新拍照'),
+                    ),
+                    if (pinPosition != null) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: onPinCleared,
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const Text('清除图钉'),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
