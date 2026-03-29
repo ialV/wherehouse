@@ -14,10 +14,16 @@ workflows:
       - name: Ensure INTERNET permission for release
         script: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
-          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
-            sed -i 's|<manifest|<manifest xmlns:tools="http://schemas.android.com/tools"|' "$MANIFEST"
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
-          fi
+          python3 -c "
+          p='$MANIFEST'
+          t=open(p).read()
+          if 'android.permission.INTERNET' not in t:
+              t=t.replace('</manifest>','    <uses-permission android:name=\"android.permission.INTERNET\"/>\n</manifest>')
+              open(p,'w').write(t)
+              print('INJECTED INTERNET permission')
+          else:
+              print('INTERNET permission already present')
+          "
           echo "--- AndroidManifest.xml ---"
           cat "$MANIFEST"
       - name: Create .env file
