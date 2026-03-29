@@ -5,15 +5,15 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       flutter: stable
-      groups:
-        - app_secrets
+      vars:
+        DASHSCOPE_API_KEY: Encrypted(Z0FBQUFBQnB5SW9aSW9vQ0pnYVpXNG9nRnlURnBWSE5lNzVoZU1QUGQ0TTVhT1ZDT1ZTUXBmVEU3QURiVHRIcTdLTzBlNFlRZEZLTlJCTUVVNWJLVHFWRkVHMFZvam5qVHFldFJXV3pXb0JLM0YwRzFMc3YzR2JSelI2M001RnpBRmdZNnFMY2FoTFY=)
     scripts:
       - name: Generate platform shells
         script: |
           flutter create --platforms android .
       - name: Create .env file
         script: |
-          echo "DASHSCOPE_API_KEY=\$DASHSCOPE_API_KEY" > .env
+          echo "DASHSCOPE_API_KEY=$DASHSCOPE_API_KEY" > .env
       - name: Get dependencies
         script: |
           flutter pub get
