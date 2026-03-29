@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/household.dart';
 import '../models/thing.dart';
 import '../providers/app_providers.dart';
+import '../services/debug_log.dart';
 import '../widgets/confirm_card.dart';
 
 class AddScreen extends ConsumerStatefulWidget {
@@ -19,6 +20,8 @@ class AddScreen extends ConsumerStatefulWidget {
 
 class _AddScreenState extends ConsumerState<AddScreen> {
   final ImagePicker _picker = ImagePicker();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _confirmCardKey = GlobalKey();
   late final TextEditingController _descriptionController;
   late final TextEditingController _followUpController;
 
@@ -40,6 +43,7 @@ class _AddScreenState extends ConsumerState<AddScreen> {
   void dispose() {
     _descriptionController.dispose();
     _followUpController.dispose();
+    _scrollController.dispose();
     if (!_saved && _imageFile != null) {
       unawaited(
         ref.read(storageServiceProvider).deleteImage(_imageFile!.path),
@@ -62,9 +66,17 @@ class _AddScreenState extends ConsumerState<AddScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('新增物品'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report_outlined),
+            tooltip: '调试日志',
+            onPressed: _showDebugLog,
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
+          controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           physics: const BouncingScrollPhysics(),
           children: [
@@ -125,6 +137,7 @@ class _AddScreenState extends ConsumerState<AddScreen> {
             if (_draft != null) ...[
               const SizedBox(height: 18),
               ConfirmCard(
+                key: _confirmCardKey,
                 draft: _draft!,
                 availableTags: availableTags,
                 locationSuggestions: locationSuggestions,
@@ -311,6 +324,7 @@ class _AddScreenState extends ConsumerState<AddScreen> {
           notes: draft.notes ?? description,
         );
       });
+      _scrollToConfirmCard();
     } catch (error) {
       if (mounted) {
         _showSnackBar('提取失败：$error');
@@ -467,6 +481,112 @@ class _AddScreenState extends ConsumerState<AddScreen> {
   String? _normalizeText(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  void _scrollToConfirmCard() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _confirmCardKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      }
+    });
+  }
+
+  void _showDebugLog() {
+    final entries = DebugLog.instance.entries;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.3,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (ctx, scrollCtrl) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.bug_report, color: Colors.greenAccent, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Debug Log (${entries.length})',
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontFamily: 'monospace',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () {
+                            DebugLog.instance.clear();
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text('Clear', style: TextStyle(color: Colors.redAccent)),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white54),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Colors.white24, height: 1),
+                  Expanded(
+                    child: entries.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No logs yet.\nTry generating a confirm card.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.white38, fontFamily: 'monospace'),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: scrollCtrl,
+                            padding: const EdgeInsets.all(12),
+                            itemCount: entries.length,
+                            itemBuilder: (_, i) {
+                              final e = entries[entries.length - 1 - i];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: SelectableText(
+                                  e.formatted,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    color: e.tag == 'LLM'
+                                        ? Colors.cyanAccent
+                                        : e.tag == 'INIT'
+                                            ? Colors.amberAccent
+                                            : Colors.white70,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showSnackBar(String message) {

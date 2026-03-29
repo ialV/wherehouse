@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../database/database.dart';
 import '../models/household.dart';
 import '../models/thing.dart';
+import 'debug_log.dart';
 
 class LlmService {
   LlmService({
@@ -32,13 +33,19 @@ class LlmService {
       followUpAlreadyAsked: false,
     );
 
+    final _log = DebugLog.instance;
     final key = apiKey?.trim();
+    _log.add('LLM', 'apiKey present: ${key != null && key.isNotEmpty}, len=${key?.length ?? 0}');
+    _log.add('LLM', 'description: "$description"');
+    _log.add('LLM', 'availableTags: ${availableTags.map((t) => t.name).toList()}');
     if (key == null || key.isEmpty) {
+      _log.add('LLM', '⚠️ No API key → using fallback regex path');
       return fallback;
     }
 
     try {
       final bytes = await imageFile.readAsBytes();
+      _log.add('LLM', 'Image size: ${bytes.length} bytes');
       final base64Image = base64Encode(bytes);
       final response = await _client.post(
         Uri.parse(_endpoint),
@@ -78,25 +85,30 @@ class LlmService {
         }),
       );
 
+      _log.add('LLM', 'API response: ${response.statusCode}');
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        _log.add('LLM', '⚠️ HTTP error body: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
         return fallback;
       }
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
       final choices = decoded['choices'] as List<dynamic>? ?? const [];
       if (choices.isEmpty) {
+        _log.add('LLM', '⚠️ Empty choices in response');
         return fallback;
       }
 
       final message = choices.first['message'] as Map<String, dynamic>? ?? {};
       final content = message['content'];
-      final parsed = _extractJson(
-        content is String ? content : jsonEncode(content),
-      );
+      final rawContent = content is String ? content : jsonEncode(content);
+      _log.add('LLM', 'Raw LLM content: ${rawContent.length > 800 ? rawContent.substring(0, 800) : rawContent}');
+      final parsed = _extractJson(rawContent);
       if (parsed == null) {
+        _log.add('LLM', '⚠️ Failed to extract JSON from content');
         return fallback;
       }
 
+      _log.add('LLM', '✅ Parsed JSON: ${jsonEncode(parsed)}');
       return _mapDraft(
         parsed,
         description: description,
@@ -104,7 +116,9 @@ class LlmService {
         availableTags: availableTags,
         followUpAlreadyAsked: false,
       );
-    } catch (_) {
+    } catch (e, st) {
+      _log.add('LLM', '❌ Exception: $e');
+      _log.add('LLM', 'Stack: ${st.toString().split("\n").take(5).join(" | ")}');
       return fallback;
     }
   }
