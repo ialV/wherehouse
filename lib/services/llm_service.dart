@@ -274,7 +274,7 @@ class LlmService {
 
 请严格返回一个 JSON 对象，不要输出任何额外解释。格式如下：
 {
-  "item_name": "物品名称",
+  "item_name": "物品名称（以用户描述中提到的主体为准，而非照片中最显眼的内容）",
   "location": "放置位置（另一个物品或地点名称）",
   "expiry": "有效期（ISO date，仅当提到或照片可见时）",
   "tags_existing": ["从已有词表中选择的 tag 名"],
