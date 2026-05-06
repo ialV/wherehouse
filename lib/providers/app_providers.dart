@@ -60,3 +60,8 @@ final locationChainProvider =
 final locationsProvider = StreamProvider.autoDispose<List<Thing>>((ref) {
   return ref.watch(thingDaoProvider).watchLocations();
 });
+
+final containerChildrenProvider =
+    StreamProvider.autoDispose.family<List<Thing>, String>((ref, containerId) {
+  return ref.watch(thingDaoProvider).watchContainerChildren(containerId);
+});

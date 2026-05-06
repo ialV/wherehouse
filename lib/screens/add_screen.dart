@@ -13,7 +13,14 @@ import '../widgets/confirm_card.dart';
 import 'barcode_scan_screen.dart';
 
 class AddScreen extends ConsumerStatefulWidget {
-  const AddScreen({super.key});
+  const AddScreen({
+    super.key,
+    this.initialContainerId,
+    this.initialContainerName,
+  });
+
+  final String? initialContainerId;
+  final String? initialContainerName;
 
   @override
   ConsumerState<AddScreen> createState() => _AddScreenState();
@@ -35,6 +42,33 @@ class _AddScreenState extends ConsumerState<AddScreen> {
   bool _isRefining = false;
   bool _isSaving = false;
   bool _saved = false;
+  bool get _isBatchMode =>
+      widget.initialContainerId != null ||
+      _resolvedContainerName != null;
+
+  String? get _resolvedContainerName {
+    final normalizedName = _normalizeText(widget.initialContainerName);
+    if (normalizedName != null) {
+      return normalizedName;
+    }
+
+    if (widget.initialContainerId == null) {
+      return null;
+    }
+
+    final locations = ref.read(locationsProvider).valueOrNull;
+    if (locations == null) {
+      return null;
+    }
+
+    for (final location in locations) {
+      if (location.id == widget.initialContainerId) {
+        return _normalizeText(location.name);
+      }
+    }
+
+    return null;
+  }
 
   @override
   void initState() {
@@ -71,8 +105,13 @@ class _AddScreenState extends ConsumerState<AddScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('新增物品'),
+        title: Text(_isBatchMode ? '批量入库' : '新增物品'),
         actions: [
+          if (_isBatchMode)
+            TextButton(
+              onPressed: _isBusy ? null : _exitBatchMode,
+              child: const Text('完成'),
+            ),
           IconButton(
             icon: const Icon(Icons.bug_report_outlined),
             tooltip: '调试日志',
@@ -98,6 +137,31 @@ class _AddScreenState extends ConsumerState<AddScreen> {
                   : null,
             ),
             const SizedBox(height: 18),
+            if (_isBatchMode && _resolvedContainerName != null) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE8D8),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      '当前容器：${_resolvedContainerName}',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: const Color(0xFF9C542F),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(18),
@@ -282,7 +346,13 @@ class _AddScreenState extends ConsumerState<AddScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check_circle_outline_rounded),
-                  label: Text(_isSaving ? '保存中…' : '确认保存'),
+                  label: Text(
+                    _isSaving
+                        ? '保存中…'
+                        : _isBatchMode
+                            ? '保存并继续'
+                            : '确认保存',
+                  ),
                 ),
               ),
             ],
@@ -354,6 +424,10 @@ class _AddScreenState extends ConsumerState<AddScreen> {
         _draft = draft.copyWith(
           notes: draft.notes ?? description,
           barcode: _barcodeValue,
+          containedInId: widget.initialContainerId ?? draft.containedInId,
+          locationName: _isBatchMode && _resolvedContainerName != null
+              ? _resolvedContainerName
+              : draft.locationName,
         );
       });
       _scrollToConfirmCard();
@@ -491,14 +565,18 @@ class _AddScreenState extends ConsumerState<AddScreen> {
       await ref.read(thingDaoProvider).saveDraft(
             _normalizeDraft(draft),
           );
-      _saved = true;
 
       if (!mounted) {
         return;
       }
 
       _showSnackBar('已保存');
-      Navigator.of(context).pop();
+      if (_isBatchMode) {
+        _resetForNextBatchDraft();
+      } else {
+        _saved = true;
+        Navigator.of(context).pop();
+      }
     } catch (error) {
       if (mounted) {
         _showSnackBar('保存失败：$error');
@@ -510,6 +588,21 @@ class _AddScreenState extends ConsumerState<AddScreen> {
         });
       }
     }
+  }
+
+  void _resetForNextBatchDraft() {
+    setState(() {
+      _draft = null;
+      _imageFile = null;
+      _pinPosition = null;
+      _scannedBarcode = null;
+      _followUpController.clear();
+      _descriptionController.clear();
+    });
+  }
+
+  void _exitBatchMode() {
+    Navigator.of(context).pop();
   }
 
   ThingDraft _normalizeDraft(ThingDraft draft) {

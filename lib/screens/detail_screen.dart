@@ -9,6 +9,7 @@ import '../models/thing.dart';
 import '../providers/app_providers.dart';
 import '../widgets/confirm_card.dart';
 import '../widgets/location_chain.dart';
+import 'add_screen.dart';
 
 class DetailScreen extends ConsumerStatefulWidget {
   const DetailScreen({
@@ -42,6 +43,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
       appBar: AppBar(
         title: const Text('物品详情'),
         actions: [
+          if (thingAsync.valueOrNull?.isLocation == true)
+            TextButton.icon(
+              onPressed: thingAsync.valueOrNull == null || _deleting
+                  ? null
+                  : () => _openAddToContainer(thingAsync.valueOrNull!),
+              icon: const Icon(Icons.playlist_add_rounded, size: 20),
+              label: const Text('添加物品'),
+            ),
           IconButton(
             tooltip: '编辑',
             onPressed: thingAsync.valueOrNull == null || _deleting
@@ -70,6 +79,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
             if (thing == null) {
               return const _DetailEmptyState();
             }
+            final containerChildrenAsync = thing.isLocation
+                ? ref.watch(containerChildrenProvider(thing.id))
+                : null;
 
             return chainAsync.when(
               data: (chain) => ListView(
@@ -151,6 +163,15 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
+                  if (containerChildrenAsync != null) ...[
+                    _DetailSection(
+                      title: '容器内容',
+                      child: _ContainerChildrenList(
+                        childrenAsync: containerChildrenAsync,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
                   _DetailSection(
                     title: '标签',
                     child: thing.tags.isEmpty
@@ -234,6 +255,17 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     }
   }
 
+  Future<void> _openAddToContainer(Thing thing) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AddScreen(
+          initialContainerId: thing.id,
+          initialContainerName: thing.name,
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteThing(Thing thing) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -286,6 +318,55 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
         });
       }
     }
+  }
+}
+
+class _ContainerChildrenList extends StatelessWidget {
+  const _ContainerChildrenList({
+    required this.childrenAsync,
+  });
+
+  final AsyncValue<List<Thing>> childrenAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return childrenAsync.when(
+      loading: () => const SizedBox(
+        height: 36,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (error, _) => Text('内容加载失败：$error'),
+      data: (children) {
+        if (children.isEmpty) {
+          return const Text('这个位置里还没有记录物品');
+        }
+
+        return Column(
+          children: [
+            for (final child in children)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: Text(child.name),
+                subtitle: Text(child.containerName ?? '当前容器'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => DetailScreen(thingId: child.id),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 }
 

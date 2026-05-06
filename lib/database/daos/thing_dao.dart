@@ -30,6 +30,16 @@ class ThingDao {
     return _watch(loadTags);
   }
 
+  Stream<List<Thing>> watchContainerChildren(
+    String containerId, {
+    bool includeLocations = false,
+  }) {
+    return _watch(() => loadContainerChildren(
+          containerId,
+          includeLocations: includeLocations,
+        ));
+  }
+
   Stream<List<Thing>> watchLocations() {
     return _watch(() => loadLocations());
   }
@@ -59,6 +69,33 @@ class ThingDao {
       variables: [
         Variable.withString(AppDatabase.defaultHouseholdId),
       ],
+    ).get();
+    return Future.wait(rows.map(_hydrateThing));
+  }
+
+  Future<List<Thing>> loadContainerChildren(
+    String containerId, {
+    bool includeLocations = false,
+  }) async {
+    final variables = <Variable>[
+      Variable.withString(AppDatabase.defaultHouseholdId),
+      Variable.withString(containerId),
+    ];
+
+    final buffer = StringBuffer('''
+      SELECT * FROM things
+      WHERE household_id = ? AND contained_in = ?
+    ''');
+
+    if (!includeLocations) {
+      buffer.write(" AND thing_type != 'location' ");
+    }
+
+    buffer.write(' ORDER BY updated_at DESC ');
+
+    final rows = await _database.customSelect(
+      buffer.toString(),
+      variables: variables,
     ).get();
     return Future.wait(rows.map(_hydrateThing));
   }
