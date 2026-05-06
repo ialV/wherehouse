@@ -10,6 +10,7 @@ import '../models/thing.dart';
 import '../providers/app_providers.dart';
 import '../services/debug_log.dart';
 import '../widgets/confirm_card.dart';
+import 'barcode_scan_screen.dart';
 
 class AddScreen extends ConsumerStatefulWidget {
   const AddScreen({super.key});
@@ -27,6 +28,7 @@ class _AddScreenState extends ConsumerState<AddScreen> {
 
   File? _imageFile;
   ThingDraft? _draft;
+  String? _scannedBarcode;
   /// Relative pin position (0-1, 0-1). null = no pin placed.
   Offset? _pinPosition;
   bool _isExtracting = false;
@@ -53,6 +55,8 @@ class _AddScreenState extends ConsumerState<AddScreen> {
     }
     super.dispose();
   }
+
+  String? get _barcodeValue => _draft?.barcode ?? _scannedBarcode;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +129,23 @@ class _AddScreenState extends ConsumerState<AddScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isBusy ? null : _scanBarcode,
+                            icon: const Icon(Icons.qr_code_scanner_rounded),
+                            label: Text(
+                              _barcodeValue == null
+                                  ? '扫条形码'
+                                  : '已扫 $_barcodeValue',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -332,6 +353,7 @@ class _AddScreenState extends ConsumerState<AddScreen> {
       setState(() {
         _draft = draft.copyWith(
           notes: draft.notes ?? description,
+          barcode: _barcodeValue,
         );
       });
       _scrollToConfirmCard();
@@ -346,6 +368,27 @@ class _AddScreenState extends ConsumerState<AddScreen> {
         });
       }
     }
+  }
+
+  Future<void> _scanBarcode() async {
+    final barcode = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => const BarcodeScanScreen(),
+      ),
+    );
+
+    final normalized = barcode?.trim();
+    if (!mounted || normalized == null || normalized.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _scannedBarcode = normalized;
+      final currentDraft = _draft;
+      if (currentDraft != null) {
+        _draft = currentDraft.copyWith(barcode: normalized);
+      }
+    });
   }
 
   Future<void> _refineDraft() async {
@@ -482,6 +525,7 @@ class _AddScreenState extends ConsumerState<AddScreen> {
       containedInId: draft.containedInId,
       expiry: draft.expiry,
       notes: _normalizeText(draft.notes),
+      barcode: _normalizeText(draft.barcode),
       followUp: draft.followUp,
       followUpAsked: draft.followUpAsked,
       thingType: draft.thingType,
@@ -660,7 +704,12 @@ class _HeroPanel extends StatelessWidget {
                                     constraints.maxWidth;
                                 final ry = details.localPosition.dy /
                                     constraints.maxHeight;
-                                onPinPlaced!(Offset(rx.clamp(0, 1), ry.clamp(0, 1)));
+                                onPinPlaced!(
+                                  Offset(
+                                    rx.clamp(0, 1).toDouble(),
+                                    ry.clamp(0, 1).toDouble(),
+                                  ),
+                                );
                               },
                         child: Stack(
                           fit: StackFit.expand,

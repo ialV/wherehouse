@@ -15,9 +15,6 @@ Future<void> main() async {
     await dotenv.load(fileName: '.env');
     final keyVal = dotenv.maybeGet('DASHSCOPE_API_KEY');
     log.add('INIT', '.env loaded OK. DASHSCOPE_API_KEY present: ${keyVal != null && keyVal.isNotEmpty}, len=${keyVal?.length ?? 0}');
-    if (keyVal != null && keyVal.isNotEmpty) {
-      log.add('INIT', 'Key prefix: ${keyVal.substring(0, keyVal.length > 6 ? 6 : keyVal.length)}...');
-    }
   } catch (e) {
     log.add('INIT', '.env load FAILED: $e');
   }
@@ -32,4 +29,3 @@ Future<void> main() async {
     ),
   );
 }
-

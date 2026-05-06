@@ -32,6 +32,7 @@ class ConfirmCard extends StatefulWidget {
 class _ConfirmCardState extends State<ConfirmCard> {
   late final TextEditingController _nameController;
   late final TextEditingController _locationController;
+  late final TextEditingController _barcodeController;
   late final TextEditingController _notesController;
   late final TextEditingController _expiryController;
   final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
@@ -41,6 +42,7 @@ class _ConfirmCardState extends State<ConfirmCard> {
     super.initState();
     _nameController = TextEditingController();
     _locationController = TextEditingController();
+    _barcodeController = TextEditingController();
     _notesController = TextEditingController();
     _expiryController = TextEditingController();
     _syncControllers();
@@ -58,6 +60,7 @@ class _ConfirmCardState extends State<ConfirmCard> {
   void dispose() {
     _nameController.dispose();
     _locationController.dispose();
+    _barcodeController.dispose();
     _notesController.dispose();
     _expiryController.dispose();
     super.dispose();
@@ -113,6 +116,23 @@ class _ConfirmCardState extends State<ConfirmCard> {
               ),
               onChanged: (value) {
                 widget.onChanged(_mergeDraft(itemName: value));
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _barcodeController,
+              keyboardType: TextInputType.text,
+              decoration: const InputDecoration(
+                labelText: '条形码',
+                prefixIcon: Icon(Icons.qr_code_2_outlined),
+              ),
+              onChanged: (value) {
+                widget.onChanged(
+                  _mergeDraft(
+                    barcode: value,
+                    clearBarcode: value.trim().isEmpty,
+                  ),
+                );
               },
             ),
             const SizedBox(height: 12),
@@ -285,6 +305,7 @@ class _ConfirmCardState extends State<ConfirmCard> {
   void _syncControllers() {
     _nameController.text = widget.draft.itemName;
     _locationController.text = widget.draft.locationName ?? '';
+    _barcodeController.text = widget.draft.barcode ?? '';
     _notesController.text = widget.draft.notes ?? '';
     _expiryController.text = widget.draft.expiry == null
         ? ''
@@ -296,6 +317,8 @@ class _ConfirmCardState extends State<ConfirmCard> {
     String? locationName,
     DateTime? expiry,
     bool clearExpiry = false,
+    String? barcode,
+    bool clearBarcode = false,
     String? notes,
     bool clearNotes = false,
     bool clearContainedInId = false,
@@ -311,6 +334,7 @@ class _ConfirmCardState extends State<ConfirmCard> {
       locationName: locationName ?? widget.draft.locationName,
       containedInId: clearContainedInId ? null : widget.draft.containedInId,
       expiry: clearExpiry ? null : (expiry ?? widget.draft.expiry),
+      barcode: clearBarcode ? null : (barcode ?? widget.draft.barcode),
       notes: clearNotes ? null : (notes ?? widget.draft.notes),
       followUp: widget.draft.followUp,
       followUpAsked: widget.draft.followUpAsked,

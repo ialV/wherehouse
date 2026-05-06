@@ -85,6 +85,7 @@ class ThingDao {
       buffer.write('''
         AND (
           LOWER(name) LIKE ?
+          OR LOWER(COALESCE(barcode, '')) LIKE ?
           OR LOWER(COALESCE(notes, '')) LIKE ?
           OR LOWER(COALESCE(location_name, '')) LIKE ?
           OR id IN (
@@ -96,6 +97,7 @@ class ThingDao {
         )
       ''');
       variables.addAll([
+        Variable.withString(like),
         Variable.withString(like),
         Variable.withString(like),
         Variable.withString(like),
@@ -239,10 +241,10 @@ class ThingDao {
     await _database.customInsert(
       '''
         INSERT INTO things (
-          id, household_id, name, contained_in, location_name, expiry, notes,
+          id, household_id, name, barcode, contained_in, location_name, expiry, notes,
           created_by, created_at, updated_at, thing_type
         )
-        VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, 'location')
+        VALUES (?, ?, ?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, 'location')
       ''',
       variables: [
         Variable.withString(id),
@@ -269,15 +271,16 @@ class ThingDao {
         await _database.customInsert(
           '''
             INSERT INTO things (
-              id, household_id, name, contained_in, location_name, expiry, notes,
+              id, household_id, name, barcode, contained_in, location_name, expiry, notes,
               created_by, created_at, updated_at, thing_type
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
           variables: [
             Variable.withString(thingId),
             Variable.withString(draft.householdId),
             Variable.withString(draft.itemName.trim()),
+            Variable<String>(_nullableTrim(draft.barcode)),
             Variable<String>(containedInId),
             Variable<String>(_nullableTrim(draft.locationName)),
             Variable<String>(draft.expiry?.toIso8601String()),
@@ -292,12 +295,13 @@ class ThingDao {
         await _database.customUpdate(
           '''
             UPDATE things
-            SET name = ?, contained_in = ?, location_name = ?, expiry = ?,
+            SET name = ?, barcode = ?, contained_in = ?, location_name = ?, expiry = ?,
                 notes = ?, updated_at = ?, thing_type = ?
             WHERE id = ?
           ''',
           variables: [
             Variable.withString(draft.itemName.trim()),
+            Variable<String>(_nullableTrim(draft.barcode)),
             Variable<String>(containedInId),
             Variable<String>(_nullableTrim(draft.locationName)),
             Variable<String>(draft.expiry?.toIso8601String()),
@@ -393,16 +397,18 @@ class ThingDao {
     for (final row in allTags) {
       final id = row.data['id'] as String;
       final usageCount = usageByTagId[id] ?? 0;
-      final status = usageCount == 0 ? 'archived' : 'active';
       await _database.customUpdate(
         '''
           UPDATE tags
-          SET usage_count = ?, status = ?, last_used_at = ?
+          SET usage_count = ?,
+              status = CASE WHEN ? > 0 THEN 'active' ELSE status END,
+              last_used_at = CASE WHEN ? > 0 THEN ? ELSE last_used_at END
           WHERE id = ?
         ''',
         variables: [
           Variable.withInt(usageCount),
-          Variable.withString(status),
+          Variable.withInt(usageCount),
+          Variable.withInt(usageCount),
           Variable.withString(now),
           Variable.withString(id),
         ],
@@ -457,6 +463,7 @@ class ThingDao {
       id: id,
       householdId: row.data['household_id'] as String,
       name: row.data['name'] as String,
+      barcode: row.data['barcode'] as String?,
       photoUrls:
           photoRows.map((entry) => entry.data['photo_url'] as String).toList(),
       tags: tagRows.map(_mapTag).toList(),

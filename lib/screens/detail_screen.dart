@@ -172,6 +172,19 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   ),
                   const SizedBox(height: 18),
                   _DetailSection(
+                    title: '条形码',
+                    child: Text(
+                      thing.barcode?.trim().isNotEmpty == true
+                          ? thing.barcode!
+                          : '暂无条形码',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: const Color(0xFF4C392D),
+                            height: 1.5,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _DetailSection(
                     title: '备注',
                     child: Text(
                       thing.notes?.trim().isNotEmpty == true
@@ -453,6 +466,7 @@ class _EditThingSheetState extends ConsumerState<_EditThingSheet> {
       containedInId: widget.thing.containedIn,
       expiry: widget.thing.expiry,
       notes: widget.thing.notes,
+      barcode: widget.thing.barcode,
       thingType: widget.thing.thingType,
     );
   }
@@ -571,6 +585,7 @@ class _EditThingSheetState extends ConsumerState<_EditThingSheet> {
               containedInId: _draft.containedInId,
               expiry: _draft.expiry,
               notes: _normalizeText(_draft.notes),
+              barcode: _normalizeText(_draft.barcode),
               followUp: _draft.followUp,
               followUpAsked: _draft.followUpAsked,
               thingType: _draft.thingType,

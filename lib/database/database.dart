@@ -83,6 +83,7 @@ class AppDatabase extends GeneratedDatabase {
         id TEXT PRIMARY KEY,
         household_id TEXT NOT NULL,
         name TEXT NOT NULL,
+        barcode TEXT,
         contained_in TEXT,
         location_name TEXT,
         expiry TEXT,
@@ -94,6 +95,7 @@ class AppDatabase extends GeneratedDatabase {
         FOREIGN KEY (contained_in) REFERENCES things(id) ON DELETE SET NULL
       )
     ''');
+    await _ensureThingsBarcodeColumn();
     await customStatement('''
       CREATE TABLE IF NOT EXISTS thing_photos (
         thing_id TEXT NOT NULL,
@@ -121,6 +123,29 @@ class AppDatabase extends GeneratedDatabase {
       'ON things(contained_in)',
     );
     await _seedDefaults();
+    await _repairTagStatuses();
+  }
+
+  Future<void> _ensureThingsBarcodeColumn() async {
+    final columns = await customSelect('PRAGMA table_info(things)').get();
+    final hasBarcode = columns.any((row) => row.data['name'] == 'barcode');
+    if (!hasBarcode) {
+      await customStatement('ALTER TABLE things ADD COLUMN barcode TEXT');
+    }
+  }
+
+  Future<void> _repairTagStatuses() async {
+    await customUpdate(
+      '''
+        UPDATE tags
+        SET status = 'active'
+        WHERE household_id = ? AND status = 'archived'
+      ''',
+      variables: [
+        Variable.withString(defaultHouseholdId),
+      ],
+      updates: const {},
+    );
   }
 
   Future<void> _seedDefaults() async {

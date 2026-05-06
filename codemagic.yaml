@@ -11,18 +11,19 @@ workflows:
       - name: Generate platform shells
         script: |
           flutter create --platforms android .
-      - name: Ensure INTERNET permission for release
+      - name: Ensure Android permissions for release
         script: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           python3 -c "
           p='$MANIFEST'
           t=open(p).read()
-          if 'android.permission.INTERNET' not in t:
-              t=t.replace('</manifest>','    <uses-permission android:name=\"android.permission.INTERNET\"/>\n</manifest>')
-              open(p,'w').write(t)
-              print('INJECTED INTERNET permission')
-          else:
-              print('INTERNET permission already present')
+          for permission in ['android.permission.INTERNET', 'android.permission.CAMERA']:
+              if permission not in t:
+                  t=t.replace('</manifest>', f'    <uses-permission android:name=\"{permission}\"/>\n</manifest>')
+                  print(f'INJECTED {permission}')
+              else:
+                  print(f'{permission} already present')
+          open(p,'w').write(t)
           "
           echo "--- AndroidManifest.xml ---"
           cat "$MANIFEST"

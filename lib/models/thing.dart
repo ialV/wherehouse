@@ -16,6 +16,7 @@ class Thing {
     required this.createdAt,
     required this.updatedAt,
     required this.thingType,
+    this.barcode,
     this.containerName,
   });
 
@@ -31,6 +32,7 @@ class Thing {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String thingType;
+  final String? barcode;
   final String? containerName;
 
   bool get isLocation => thingType == 'location';
@@ -58,6 +60,7 @@ class Thing {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? thingType,
+    Object? barcode = _unset,
     Object? containerName = _unset,
   }) {
     return Thing(
@@ -74,6 +77,7 @@ class Thing {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       thingType: thingType ?? this.thingType,
+      barcode: identical(barcode, _unset) ? this.barcode : barcode as String?,
       containerName: identical(containerName, _unset)
           ? this.containerName
           : containerName as String?,
@@ -108,6 +112,7 @@ class ThingDraft {
     this.containedInId,
     this.expiry,
     this.notes,
+    this.barcode,
     this.followUp,
     this.followUpAsked = false,
     this.thingType = 'item',
@@ -124,6 +129,7 @@ class ThingDraft {
   final String? containedInId;
   final DateTime? expiry;
   final String? notes;
+  final String? barcode;
   final FollowUpPrompt? followUp;
   final bool followUpAsked;
   final String thingType;
@@ -140,6 +146,7 @@ class ThingDraft {
     Object? containedInId = _unset,
     Object? expiry = _unset,
     Object? notes = _unset,
+    Object? barcode = _unset,
     Object? followUp = _unset,
     bool clearFollowUp = false,
     bool? followUpAsked,
@@ -161,6 +168,7 @@ class ThingDraft {
           : containedInId as String?,
       expiry: identical(expiry, _unset) ? this.expiry : expiry as DateTime?,
       notes: identical(notes, _unset) ? this.notes : notes as String?,
+      barcode: identical(barcode, _unset) ? this.barcode : barcode as String?,
       followUp: clearFollowUp
           ? null
           : identical(followUp, _unset)

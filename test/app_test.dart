@@ -20,14 +20,18 @@ void main() {
         createdBy: AppDatabase.defaultUserId,
         locationName: '客厅药箱',
         notes: '测试数据',
+        barcode: '6901234567890',
       ),
     );
 
     final saved = await dao.getThing(id);
+    final searchResults = await dao.searchThings(query: '6901234567890');
 
     expect(saved, isNotNull);
     expect(saved!.name, '布洛芬');
     expect(saved.containerName, '客厅药箱');
+    expect(saved.barcode, '6901234567890');
     expect(saved.tags.single.name, '测试标签');
+    expect(searchResults.single.id, id);
   });
 }
