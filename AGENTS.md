@@ -11,6 +11,7 @@ Wherehouse is a Flutter MVP for household item storage and retrieval. App code l
 - `flutter analyze`: run static analysis with the repository lint rules.
 - `flutter run`: launch the app on a connected device or emulator.
 - `flutter build apk --release`: build the Android release APK. CI generates Android platform files first with `flutter create --platforms android .`.
+- `python3 scripts/watch_codemagic.py <build_id> --interval 60`: watch a Codemagic build using `CODEMAGIC_API_TOKEN` or `CODE_MAGIC_API_KEY` from `.env`.
 
 ## Coding Style & Naming Conventions
 
@@ -26,4 +27,4 @@ Git history uses concise Conventional Commit-style subjects, for example `feat: 
 
 ## Security & Configuration Tips
 
-Runtime configuration is loaded from `.env`, which is listed as a Flutter asset. Keep real secrets local or in CI secret storage; use `.env.example` for placeholders. The Codemagic workflow injects `DASHSCOPE_API_KEY` and ensures Android INTERNET permission for release builds, so avoid hardcoding API keys in Dart source.
+Runtime configuration is loaded from `.env`, which is listed as a Flutter asset and ignored by Git. Keep real secrets local or in CI secret storage; use `.env.example` for placeholders. Local automation may read `GITHUB_TOKEN` and `CODEMAGIC_API_TOKEN` from `.env`, but never print or commit their values. The Codemagic workflow injects `DASHSCOPE_API_KEY` and ensures Android INTERNET/CAMERA permissions for release builds, so avoid hardcoding API keys in Dart source.
